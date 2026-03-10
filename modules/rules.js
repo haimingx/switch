@@ -42,7 +42,9 @@ function buildCookieRule(targetApi, cookieString) {
       requestHeaders: [{ header: 'Cookie', operation: 'set', value: cookieString }],
     },
     condition: {
-      urlFilter: `${isLocal ? 'http' : '*'}://${targetApi}/*`,
+      // For IP:port targets, urlFilter scheme+port combos are unsupported in Chrome DNR.
+      // Use plain substring match for localhost, wildcard pattern for named hosts.
+      urlFilter: isLocal ? targetApi : `*://${targetApi}/*`,
       resourceTypes: ['xmlhttprequest', 'main_frame', 'sub_frame', 'websocket'],
     },
   };
