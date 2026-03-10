@@ -169,10 +169,15 @@ function unbindRequestObserver(tabId) {
 
 async function restoreAllRules() {
   const sites = await Config.getManagedSites();
+  const enabled = [];
   for (const domain of sites) {
-    await applyRulesForDomain(domain);
+    const config = await Config.getConfig(domain);
+    if (config.isEnabled) {
+      await applyRulesForDomain(domain);
+      enabled.push(domain);
+    }
   }
-  if (sites.length) console.log(`[bg] restored rules for: ${sites.join(', ')}`);
+  if (enabled.length) console.log(`[bg] restored rules for: ${enabled.join(', ')}`);
 }
 
 async function applyRulesForDomain(domain) {
@@ -182,7 +187,7 @@ async function applyRulesForDomain(domain) {
   if (config.isEnabled && activePairs.length > 0) {
     const cookies = await Cookies.getStored(domain);
     await Rules.apply(config.pairs, cookies);
-    const primaryTarget = activePairs[0].target;
+    const primaryTarget = (activePairs.find(p => p.type !== 'ws') ?? activePairs[0]).target;
     bindResponseListener(primaryTarget);
   } else {
     await Rules.clear();
@@ -193,7 +198,7 @@ async function applyRulesForDomain(domain) {
 async function refreshCookieRule(domain) {
   const config = await Config.getConfig(domain);
   if (!config.isEnabled) return;
-  const primaryTarget = (config.pairs ?? []).find(p => p.target)?.target;
+  const primaryTarget = (config.pairs ?? []).find(p => p.target && p.type !== 'ws')?.target;
   if (!primaryTarget) return;
   const cookies = await Cookies.getStored(domain);
   await Rules.updateCookieOnly(primaryTarget, cookies);

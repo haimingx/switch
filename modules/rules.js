@@ -63,7 +63,7 @@ function buildRules(pairs, cookies) {
     rules.push(buildRedirectRule(REDIRECT_IDS[i], pair.original, pair.target));
   });
 
-  const cookieTarget = pairs.find(p => p.target)?.target;
+  const cookieTarget = pairs.find(p => p.target && p.type !== 'ws')?.target;
   const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
   if (cookieTarget && cookieString) {
     rules.push(buildCookieRule(cookieTarget, cookieString));
