@@ -41,7 +41,7 @@ function buildCookieRule(targetApi, cookieString) {
       requestHeaders: [{ header: 'Cookie', operation: 'set', value: cookieString }],
     },
     condition: {
-      urlFilter: `${LOCALHOST_RE.test(targetApi.split(':')[0]) ? 'http' : '*'}://${targetApi}/*`,
+      regexFilter: `^https?://${esc(targetApi)}/`,
       resourceTypes: ['xmlhttprequest', 'main_frame', 'sub_frame', 'websocket'],
     },
   };
