@@ -2,6 +2,13 @@
 import * as Config  from './modules/config.js';
 import * as Cookies from './modules/cookies.js';
 import * as Rules   from './modules/rules.js';
+import { SWITCHIT_CONSTANTS } from './constants.js';
+
+const { LOCALHOST_RE } = SWITCHIT_CONSTANTS;
+
+function isLocalTarget(host) {
+  return LOCALHOST_RE.test(host.split(':')[0]);
+}
 
 // Top-level: restore rules on every SW wake-up
 restoreAllRules().catch(err => console.error('[bg] restoreAllRules failed:', err));
@@ -80,9 +87,11 @@ function bindResponseListener(targetApi) {
   }
   _responseListener = details => handleSetCookie(details).catch(console.error);
   _listeningTarget  = targetApi;
+  // Chrome match patterns don't allow '*' scheme with a port number,
+  // so use 'http://' explicitly for localhost/IP targets.
   chrome.webRequest.onHeadersReceived.addListener(
     _responseListener,
-    { urls: [`*://${targetApi}/*`] },
+    { urls: [isLocalTarget(targetApi) ? `http://${targetApi}/*` : `*://${targetApi}/*`] },
     ['responseHeaders', 'extraHeaders'],
   );
 }
