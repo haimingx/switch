@@ -116,7 +116,10 @@ function isIgnored(hostname) {
 
 function buildExcludeTargets(pairs) {
   return new Set(
-    (pairs ?? []).filter(p => p.target).map(p => `${p.type}|${p.target}`)
+    (pairs ?? []).filter(p => p.target).map(p => {
+      const hostname = safeHostname(`http://${p.target}`) ?? p.target;
+      return `${p.type}|${hostname}`;
+    })
   );
 }
 
