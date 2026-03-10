@@ -33,6 +33,7 @@ function buildRedirectRule(ruleId, original, target) {
 }
 
 function buildCookieRule(targetApi, cookieString) {
+  const isLocal = LOCALHOST_RE.test(targetApi.split(':')[0]);
   return {
     id: RULE_IDS.COOKIE_INJECT,
     priority: 101,
@@ -41,7 +42,7 @@ function buildCookieRule(targetApi, cookieString) {
       requestHeaders: [{ header: 'Cookie', operation: 'set', value: cookieString }],
     },
     condition: {
-      requestDomains: [targetApi.split(':')[0]],
+      urlFilter: `${isLocal ? 'http' : '*'}://${targetApi}/*`,
       resourceTypes: ['xmlhttprequest', 'main_frame', 'sub_frame', 'websocket'],
     },
   };
