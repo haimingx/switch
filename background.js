@@ -8,7 +8,8 @@ restoreAllRules().catch(err => console.error('[bg] restoreAllRules failed:', err
 
 // ── Events ────────────────────────────────────────────────────
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
+  await Rules.clear(); // flush any stale/invalid rules persisted by previous version
   console.log('[SWITCH] installed/updated');
 });
 
