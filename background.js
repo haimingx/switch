@@ -10,13 +10,38 @@ function isLocalTarget(host) {
   return LOCALHOST_RE.test(host.split(':')[0]);
 }
 
-// Top-level: restore rules on every SW wake-up
-restoreAllRules().catch(err => console.error('[bg] restoreAllRules failed:', err));
+function safeHostname(url) {
+  try { return new URL(url).hostname; } catch { return null; }
+}
+
+// Strip an optional :port so we can compare against URL().hostname.
+function hostOnly(hostMaybePort) {
+  return hostMaybePort.split(':')[0];
+}
+
+function debounce(fn, ms) {
+  let timer = null;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+// ── Startup: rebuild everything from persistent state ─────────
+// MV3 service workers are killed when idle; on every wake-up we re-derive all
+// runtime state (DNR rules, listeners, per-tab observers) from chrome.storage
+// and chrome.tabs rather than relying on anything held in memory.
+(async () => {
+  await reconcile();
+  await restoreObservers();
+})().catch(err => console.error('[bg] startup failed:', err));
 
 // ── Events ────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(async () => {
-  await Rules.clear(); // flush any stale/invalid rules persisted by previous version
+  // reconcile() already replaces the full dynamic ruleset, flushing anything
+  // stale persisted by a previous version.
+  await reconcile().catch(err => console.error('[bg] onInstalled reconcile failed:', err));
   console.log('[SWITCH] installed/updated');
 });
 
@@ -24,8 +49,9 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete' || !tab.url) return;
   const domain = safeHostname(tab.url);
   if (!domain || !(await Config.isManaged(domain))) return;
+  // Capturing cookies writes cookies.<domain>, which triggers storage.onChanged
+  // → scheduleReconcile, so the cookie-inject rule stays current.
   await Cookies.capture(domain);
-  await refreshCookieRule(domain);
   bindRequestObserver(tabId, domain);
 });
 
@@ -33,25 +59,40 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   unbindRequestObserver(tabId);
 });
 
+// Re-capture cookies when the browser's cookie jar changes for a managed
+// domain. Debounced because cookie churn can be very chatty.
+const _cookieCaptureQueue = new Set();
+const _flushCookieCaptures = debounce(async () => {
+  const domains = [..._cookieCaptureQueue];
+  _cookieCaptureQueue.clear();
+  for (const domain of domains) {
+    await Cookies.capture(domain).catch(err => console.error('[bg] cookie capture failed:', err));
+  }
+}, 300);
+
 chrome.cookies.onChanged.addListener(async ({ cookie }) => {
   const domain = cookie.domain.replace(/^\./, '');
   if (!(await Config.isManaged(domain))) return;
-  await Cookies.capture(domain);
-  await refreshCookieRule(domain);
+  _cookieCaptureQueue.add(domain);
+  _flushCookieCaptures();
 });
 
-chrome.storage.onChanged.addListener(async (changes, area) => {
+chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
-  const configKey = Object.keys(changes).find(k => k.startsWith('config.'));
-  if (!configKey) return;
-  const domain = configKey.slice('config.'.length);
-  await applyRulesForDomain(domain);
 
-  // Keep observer exclusion sets in sync with updated config
-  const newPairs = changes[configKey].newValue?.pairs;
-  if (newPairs) {
+  const keys = Object.keys(changes);
+  const ruleAffecting = keys.some(k =>
+    k === 'managed_sites' || k.startsWith('config.') || k.startsWith('cookies.'));
+  if (ruleAffecting) scheduleReconcile();
+
+  // Keep per-tab observer exclusion sets in sync with updated config(s).
+  for (const key of keys) {
+    if (!key.startsWith('config.')) continue;
+    const domain = key.slice('config.'.length);
+    const newPairs = changes[key].newValue?.pairs;
+    if (!newPairs) continue;
     _tabObservers.forEach(entry => {
-      if (entry.pageDomain === domain) entry.excludeTargets?.(newPairs);
+      if (entry.pageDomain === domain) entry.excludeTargets(newPairs);
     });
   }
 });
@@ -63,8 +104,8 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       return true;
     case 'forceCookieRead': {
       const { domain } = request;
+      // capture() persists cookies → storage.onChanged → reconcile rebuilds rules.
       Cookies.capture(domain)
-        .then(() => refreshCookieRule(domain))
         .then(() => sendResponse({ success: true }))
         .catch(err => sendResponse({ success: false, error: err.message }));
       return true;
@@ -75,35 +116,123 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 });
 
-// ── Set-Cookie listener ───────────────────────────────────────
+// ── Reconcile: single source of truth for all runtime state ───
+// Any change to managed sites / config / cookies funnels here. We rebuild the
+// whole DNR ruleset, the Set-Cookie listener target set, and the dynamic WS
+// content-script registrations from the full set of enabled sites.
+
+let _reconciling = false;
+let _reconcileQueued = false;
+
+async function reconcile() {
+  if (_reconciling) { _reconcileQueued = true; return; }
+  _reconciling = true;
+  try {
+    const domains = await Config.getManagedSites();
+    const enabled = [];
+    for (const domain of domains) {
+      const config = await Config.getConfig(domain);
+      if (!config.isEnabled) continue;
+      const cookies = await Cookies.getStored(domain);
+      enabled.push({ domain, config, cookies });
+    }
+
+    await Rules.reconcile(enabled);
+    syncResponseListener(enabled);
+    await syncWsContentScripts(enabled);
+  } catch (err) {
+    console.error('[bg] reconcile failed:', err);
+  } finally {
+    _reconciling = false;
+    if (_reconcileQueued) { _reconcileQueued = false; reconcile(); }
+  }
+}
+
+const scheduleReconcile = debounce(() => reconcile(), 150);
+
+// ── Set-Cookie listener (covers ALL enabled targets) ──────────
+// A single onHeadersReceived listener registered for the union of every enabled
+// target. handleSetCookie() figures out which managed domain each response
+// belongs to, so one listener serves any number of targets.
 
 let _responseListener = null;
-let _listeningTarget  = null;
+let _responseTargetsKey = '';
 
-function bindResponseListener(targetApi) {
-  if (_listeningTarget === targetApi) return;
+function syncResponseListener(enabled) {
+  const targets = [...new Set(
+    enabled.flatMap(e => (e.config.pairs ?? [])
+      .filter(p => p.target && p.type !== 'ws')
+      .map(p => p.target))
+  )];
+  const key = targets.slice().sort().join(',');
+  if (key === _responseTargetsKey) return; // nothing changed
+  _responseTargetsKey = key;
+
   if (_responseListener) {
     chrome.webRequest.onHeadersReceived.removeListener(_responseListener);
+    _responseListener = null;
   }
-  _responseListener = details => handleSetCookie(details).catch(console.error);
-  _listeningTarget  = targetApi;
-  // Chrome match patterns don't allow '*' scheme with a port number,
-  // so use 'http://' explicitly for localhost/IP targets.
+  if (!targets.length) return;
+
+  // Match patterns can't contain a port; use host-only (matches any port).
+  const urls = targets.map(t => {
+    const host = hostOnly(t);
+    return isLocalTarget(t) ? `http://${host}/*` : `*://${host}/*`;
+  });
+
+  _responseListener = details => handleSetCookie(details).catch(err =>
+    console.error('[bg] handleSetCookie failed:', err));
   chrome.webRequest.onHeadersReceived.addListener(
     _responseListener,
-    { urls: [isLocalTarget(targetApi) ? `http://${targetApi}/*` : `*://${targetApi}/*`] },
+    { urls },
     ['responseHeaders', 'extraHeaders'],
   );
 }
 
-function unbindResponseListener() {
-  if (!_responseListener) return;
-  chrome.webRequest.onHeadersReceived.removeListener(_responseListener);
-  _responseListener = null;
-  _listeningTarget  = null;
+// ── Dynamic WS content-script registration ────────────────────
+// content_ws.js (MAIN world) + content_bridge.js are injected ONLY on domains
+// that actually have an enabled WS pair. Every other page is untouched — its
+// window.WebSocket is never hooked (footprint + compatibility, see plan #3).
+
+let _wsRegKey = '';
+const WS_SCRIPT_IDS = ['switch-ws-main', 'switch-ws-bridge'];
+
+async function syncWsContentScripts(enabled) {
+  const wsDomains = [...new Set(
+    enabled
+      .filter(e => (e.config.pairs ?? []).some(p => p.type === 'ws' && p.original && p.target))
+      .map(e => e.domain)
+  )];
+  const matches = wsDomains.map(d => `*://${d}/*`).sort();
+  const key = matches.join(',');
+  if (key === _wsRegKey) return;
+
+  try {
+    const existing = await chrome.scripting.getRegisteredContentScripts({ ids: WS_SCRIPT_IDS });
+    const existingIds = existing.map(s => s.id);
+
+    if (!matches.length) {
+      if (existingIds.length) await chrome.scripting.unregisterContentScripts({ ids: existingIds });
+      _wsRegKey = key;
+      return;
+    }
+
+    const scripts = [
+      { id: 'switch-ws-main',   matches, js: ['content_ws.js'],     runAt: 'document_start', world: 'MAIN',     persistAcrossSessions: true },
+      { id: 'switch-ws-bridge', matches, js: ['content_bridge.js'], runAt: 'document_start', world: 'ISOLATED', persistAcrossSessions: true },
+    ];
+    const toRegister = scripts.filter(s => !existingIds.includes(s.id));
+    const toUpdate   = scripts.filter(s =>  existingIds.includes(s.id));
+    if (toRegister.length) await chrome.scripting.registerContentScripts(toRegister);
+    if (toUpdate.length)   await chrome.scripting.updateContentScripts(toUpdate);
+    _wsRegKey = key;
+  } catch (err) {
+    console.error('[bg] syncWsContentScripts failed:', err);
+    _wsRegKey = ''; // force retry on next reconcile
+  }
 }
 
-// ── Request observer (page-caught) ────────────────────────────
+// ── Request observer (page-caught API auto-discovery) ─────────
 
 const _tabObservers = new Map();
 
@@ -155,7 +284,11 @@ function bindRequestObserver(tabId, pageDomain) {
     listener,
     { urls: ['<all_urls>'], tabId, types: ['xmlhttprequest', 'websocket'] },
   );
-  _tabObservers.set(tabId, { listener, pageDomain, excludeTargets: (pairs) => { excludeTargets = buildExcludeTargets(pairs); } });
+  _tabObservers.set(tabId, {
+    listener,
+    pageDomain,
+    excludeTargets: (pairs) => { excludeTargets = buildExcludeTargets(pairs); },
+  });
 }
 
 function unbindRequestObserver(tabId) {
@@ -165,44 +298,25 @@ function unbindRequestObserver(tabId) {
   _tabObservers.delete(tabId);
 }
 
-// ── Core helpers ──────────────────────────────────────────────
-
-async function restoreAllRules() {
-  const sites = await Config.getManagedSites();
-  const enabled = [];
-  for (const domain of sites) {
-    const config = await Config.getConfig(domain);
-    if (config.isEnabled) {
-      await applyRulesForDomain(domain);
-      enabled.push(domain);
+// Re-derive observers for all currently-open managed tabs. Called on SW
+// startup so API auto-discovery survives a service-worker restart without the
+// user having to reload the page (plan #2).
+async function restoreObservers() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (!tab.id || !tab.url) continue;
+      const domain = safeHostname(tab.url);
+      if (domain && await Config.isManaged(domain)) {
+        bindRequestObserver(tab.id, domain);
+      }
     }
-  }
-  if (enabled.length) console.log(`[bg] restored rules for: ${enabled.join(', ')}`);
-}
-
-async function applyRulesForDomain(domain) {
-  const config = await Config.getConfig(domain);
-  const activePairs = (config.pairs ?? []).filter(p => p.original && p.target);
-
-  if (config.isEnabled && activePairs.length > 0) {
-    const cookies = await Cookies.getStored(domain);
-    await Rules.apply(config.pairs, cookies);
-    const primaryTarget = (activePairs.find(p => p.type !== 'ws') ?? activePairs[0]).target;
-    bindResponseListener(primaryTarget);
-  } else {
-    await Rules.clear();
-    unbindResponseListener();
+  } catch (err) {
+    console.error('[bg] restoreObservers failed:', err);
   }
 }
 
-async function refreshCookieRule(domain) {
-  const config = await Config.getConfig(domain);
-  if (!config.isEnabled) return;
-  const primaryTarget = (config.pairs ?? []).find(p => p.target && p.type !== 'ws')?.target;
-  if (!primaryTarget) return;
-  const cookies = await Cookies.getStored(domain);
-  await Rules.updateCookieOnly(primaryTarget, cookies);
-}
+// ── Set-Cookie handling ───────────────────────────────────────
 
 async function handleSetCookie(details) {
   const setCookieHeaders = (details.responseHeaders ?? [])
@@ -215,14 +329,18 @@ async function handleSetCookie(details) {
   const sites = await Config.getManagedSites();
   for (const domain of sites) {
     const config = await Config.getConfig(domain);
-    const match = (config.pairs ?? []).find(p => p.target === targetHostname);
-    if (match && config.isEnabled) {
-      const updated = await Cookies.mergeFromSetCookie(setCookieHeaders, domain);
-      await Rules.updateCookieOnly(targetHostname, updated);
+    if (!config.isEnabled) continue;
+    // Compare host-only so targets that include a :port still match.
+    const match = (config.pairs ?? []).find(p => p.target && hostOnly(p.target) === targetHostname);
+    if (match) {
+      // Persisting merged cookies triggers storage.onChanged → reconcile.
+      await Cookies.mergeFromSetCookie(setCookieHeaders, domain);
       break;
     }
   }
 }
+
+// ── Status (popup/devtools) ───────────────────────────────────
 
 async function getStatus(domain) {
   const [config, cookies, rules] = await Promise.all([
@@ -231,8 +349,4 @@ async function getStatus(domain) {
     Rules.getActive(),
   ]);
   return { config, cookieCount: cookies.length, rules };
-}
-
-function safeHostname(url) {
-  try { return new URL(url).hostname; } catch { return null; }
 }

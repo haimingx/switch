@@ -6,12 +6,8 @@ export const SWITCHIT_CONSTANTS = {
     pairs: [],
   },
 
-  // declarativeNetRequest rule IDs (must be unique integers)
-  // IDs 1,3,4,5 = redirect pairs (up to 4); 2 = cookie inject
-  RULE_IDS: {
-    REDIRECT: [1, 3, 4, 5],  // one per pair slot
-    COOKIE_INJECT: 2,
-  },
+  // Dynamic declarativeNetRequest rule IDs are assigned sequentially at
+  // reconcile time (see modules/rules.js) — no fixed IDs to collide on.
 
   STORAGE_KEYS: {
     MANAGED_SITES:   'managed_sites',

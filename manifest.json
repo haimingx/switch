@@ -30,6 +30,7 @@
   "permissions": [
     "cookies",
     "storage",
+    "scripting",
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",
     "tabs",
@@ -55,19 +56,5 @@
 
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
-  },
-
-  "content_scripts": [
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["content_ws.js"],
-      "run_at": "document_start",
-      "world": "MAIN"
-    },
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["content_bridge.js"],
-      "run_at": "document_start"
-    }
-  ]
+  }
 }

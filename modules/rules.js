@@ -1,30 +1,33 @@
 // declarativeNetRequest dynamic rule management
 import { SWITCHIT_CONSTANTS } from '../constants.js';
 
-const { RULE_IDS, LOCALHOST_RE } = SWITCHIT_CONSTANTS;
-const REDIRECT_IDS = RULE_IDS.REDIRECT;
-const ALL_IDS = [...REDIRECT_IDS, RULE_IDS.COOKIE_INJECT];
+const { LOCALHOST_RE } = SWITCHIT_CONSTANTS;
 
 // ── Rule builders ─────────────────────────────────────────────
 
+// Escape every regex metacharacter so the domain is matched literally.
 function esc(domain) {
-  return domain.replace(/\./g, '\\.');
+  return domain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isLocal(host) {
+  return LOCALHOST_RE.test(host.split(':')[0]);
 }
 
 // WS/WSS redirect is handled by content_ws.js (MAIN world injection).
 // declarativeNetRequest does not support websocket redirect actions.
 function buildRedirectRule(ruleId, original, target) {
-  const isLocal = LOCALHOST_RE.test(target);
+  const local = isLocal(target);
   return {
     id: ruleId, priority: 100,
     action: {
       type: 'redirect',
       redirect: {
-        regexSubstitution: isLocal ? `http://${target}\\1` : `\\1://${target}\\2`,
+        regexSubstitution: local ? `http://${target}\\1` : `\\1://${target}\\2`,
       },
     },
     condition: {
-      regexFilter: isLocal
+      regexFilter: local
         ? `^https?://${esc(original)}(.*)$`
         : `^(https?)://${esc(original)}(.*)$`,
       resourceTypes: ['xmlhttprequest', 'main_frame', 'sub_frame'],
@@ -32,10 +35,10 @@ function buildRedirectRule(ruleId, original, target) {
   };
 }
 
-function buildCookieRule(targetApi, cookieString) {
-  const isLocal = LOCALHOST_RE.test(targetApi.split(':')[0]);
+function buildCookieRule(ruleId, targetApi, cookieString) {
+  const local = isLocal(targetApi);
   return {
-    id: RULE_IDS.COOKIE_INJECT,
+    id: ruleId,
     priority: 101,
     action: {
       type: 'modifyHeaders',
@@ -44,62 +47,65 @@ function buildCookieRule(targetApi, cookieString) {
     condition: {
       // For IP:port targets, urlFilter scheme+port combos are unsupported in Chrome DNR.
       // Use plain substring match for localhost, wildcard pattern for named hosts.
-      urlFilter: isLocal ? targetApi : `*://${targetApi}/*`,
-      resourceTypes: ['xmlhttprequest', 'main_frame', 'sub_frame', 'websocket'],
+      urlFilter: local ? targetApi : `*://${targetApi}/*`,
+      // Cookie injection only targets API traffic (XHR/fetch + WS handshake).
+      // main_frame/sub_frame are intentionally excluded so top-level navigations to a
+      // real-domain target keep their own legitimate cookies (see v2 plan, problem 5).
+      resourceTypes: ['xmlhttprequest', 'websocket'],
     },
   };
 }
 
-/**
- * Build rule set from a pairs array.
- * pairs: [{ type: 'http'|'ws', original, target }, ...]
- */
-function buildRules(pairs, cookies) {
-  const rules = [];
-
-  pairs.slice(0, REDIRECT_IDS.length).forEach((pair, i) => {
-    if (!pair.original || !pair.target) return;
-    if (pair.type === 'ws') return; // handled by content_ws.js
-    rules.push(buildRedirectRule(REDIRECT_IDS[i], pair.original, pair.target));
-  });
-
-  const cookieTarget = pairs.find(p => p.target && p.type !== 'ws')?.target;
-  const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
-  if (cookieTarget && cookieString) {
-    rules.push(buildCookieRule(cookieTarget, cookieString));
-  }
-
-  return rules;
-}
-
 // ── Public API ────────────────────────────────────────────────
 
-export async function apply(pairs, cookies) {
-  const rules = buildRules(pairs, cookies);
+/**
+ * Rebuild the ENTIRE dynamic ruleset from the full set of enabled sites in one
+ * atomic update. Rule IDs are assigned fresh each pass, so multiple sites/pairs
+ * never collide on a fixed ID (the v1 design only allowed one site at a time).
+ *
+ * @param {Array<{domain:string, config:object, cookies:Array<{name,value}>}>} sites
+ */
+export async function reconcile(sites) {
+  const rules = [];
+  let id = 1;
+
+  // One redirect rule per valid HTTP pair across all enabled sites.
+  for (const { config } of sites) {
+    for (const pair of config.pairs ?? []) {
+      if (pair.type === 'ws') continue; // WS handled by content_ws.js
+      if (!pair.original || !pair.target) continue;
+      rules.push(buildRedirectRule(id++, pair.original, pair.target));
+    }
+  }
+
+  // One cookie-inject rule per distinct HTTP target (last site wins if two
+  // frontends map to the same target — an unusual edge case).
+  const cookieByTarget = new Map();
+  for (const { config, cookies } of sites) {
+    const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+    if (!cookieString) continue;
+    for (const pair of config.pairs ?? []) {
+      if (pair.type === 'ws' || !pair.target) continue;
+      cookieByTarget.set(pair.target, cookieString);
+    }
+  }
+  for (const [target, cookieString] of cookieByTarget) {
+    rules.push(buildCookieRule(id++, target, cookieString));
+  }
+
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
   await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: ALL_IDS,
+    removeRuleIds: existing.map(r => r.id),
     addRules: rules,
   });
-  console.log(`[rules] applied ${rules.length} rule(s)`);
-}
-
-export async function updateCookieOnly(targetApi, cookies) {
-  const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
-  if (!cookieString) {
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [RULE_IDS.COOKIE_INJECT],
-    });
-    return;
-  }
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [RULE_IDS.COOKIE_INJECT],
-    addRules: [buildCookieRule(targetApi, cookieString)],
-  });
-  console.log(`[rules] cookie rule updated for ${targetApi} (${cookies.length} cookies)`);
+  console.log(`[rules] reconciled ${rules.length} rule(s) across ${sites.length} site(s)`);
 }
 
 export async function clear() {
-  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: ALL_IDS });
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  if (existing.length) {
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: existing.map(r => r.id) });
+  }
   console.log('[rules] cleared');
 }
 
