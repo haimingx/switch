@@ -15,7 +15,7 @@ SWITCH intercepts requests at two layers:
 | Network | HTTP/HTTPS | Chrome declarativeNetRequest (DNR) redirect rule |
 | JavaScript | WS/WSS | WebSocket constructor override injected into MAIN world |
 
-Cookies are captured from the frontend domain on page load and injected into every redirected request, so authentication flows transparently to the new backend.
+Cookies are captured from the frontend domain on page load and injected into API (XHR/fetch) and WebSocket requests to the target, so authentication flows transparently to the new backend. Top-level navigations are left untouched so a real-domain target keeps its own cookies.
 
 ---
 
@@ -58,8 +58,10 @@ background.js          Service worker. Owns rule lifecycle, cookie capture,
 popup.html/js          Extension UI. Per-site config: rule pairs, toggle,
                        cookie status, filter by MANUAL / SCANNED rules.
 
-content_ws.js          Injected into MAIN world at document_start.
-                       Overrides window.WebSocket to apply WS redirect rules.
+content_ws.js          MAIN world, document_start. Overrides window.WebSocket
+                       to apply WS redirect rules. Registered dynamically
+                       (chrome.scripting) ONLY on domains with an enabled WS
+                       pair — every other page is left untouched.
 
 content_bridge.js      Isolated-world counterpart. Reads config from
                        chrome.storage and pushes WS rules to content_ws.js
@@ -67,7 +69,8 @@ content_bridge.js      Isolated-world counterpart. Reads config from
 
 modules/config.js      Site list and per-domain config CRUD.
 modules/cookies.js     Cookie capture and merge (including Set-Cookie headers).
-modules/rules.js       DNR dynamic rule builder and applier.
+modules/rules.js       DNR dynamic rule builder. reconcile() rebuilds the whole
+                       ruleset from all enabled sites in one atomic update.
 
 devtools.html/js       Debug panel: managed sites, active DNR rules,
                        cookie status, storage inspector.
@@ -112,8 +115,9 @@ Chrome does not support WebSocket redirect via DNR, so the two protocols are han
   on the next navigation before any page scripts execute.
 
 ④ background.js installs a DNR redirect rule (host rewrite) + a separate
-  modifyHeaders rule that injects captured cookies into every request
-  reaching the target domain.
+  modifyHeaders rule that injects captured cookies into API (XHR/fetch) and
+  WebSocket requests reaching the target domain. Multiple enabled sites
+  coexist — the full ruleset is rebuilt atomically on every change.
 ```
 
 ### Storage schema (`chrome.storage.local`)
@@ -143,6 +147,7 @@ Open via `chrome://extensions/` → SWITCH → **Extension options**
 
 ## Limitations
 
-- **Single active domain** — DNR rule IDs are shared; only the last enabled domain's rules are in effect at a time
-- **WS timing** — WebSocket rules must be in place before the page initiates a connection; a page reload is required after first-time configuration
+- **Enabling WS on an open tab** — dynamic content-script registration applies to future navigations; reload the tab after first enabling a WS rule on it
+- **First-load WS** — on the very first load of a fresh tab, a WebSocket created during early page parse is briefly deferred (≤250ms) until rules arrive, then connected to the resolved target; once cached in the tab session, connections use the native WebSocket directly
+- **Real-domain cookie target** — when the target is a real domain (not localhost/IP), captured cookies replace that domain's Cookie header on API/WS requests; the popup warns about this. Local development (localhost/IP target) is unaffected
 - **Popup lifecycle** — Chrome closes the popup on tab navigation (standard extension behavior)
