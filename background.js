@@ -27,15 +27,6 @@ function debounce(fn, ms) {
   };
 }
 
-// ── Startup: rebuild everything from persistent state ─────────
-// MV3 service workers are killed when idle; on every wake-up we re-derive all
-// runtime state (DNR rules, listeners, per-tab observers) from chrome.storage
-// and chrome.tabs rather than relying on anything held in memory.
-(async () => {
-  await reconcile();
-  await restoreObservers();
-})().catch(err => console.error('[bg] startup failed:', err));
-
 // ── Events ────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -350,3 +341,16 @@ async function getStatus(domain) {
   ]);
   return { config, cookieCount: cookies.length, rules };
 }
+
+// ── Startup: rebuild everything from persistent state ─────────
+// MV3 service workers are killed when idle; on every wake-up we re-derive all
+// runtime state (DNR rules, listeners, per-tab observers) from chrome.storage
+// and chrome.tabs rather than relying on anything held in memory.
+//
+// Invoked at the BOTTOM of the module so the `let`/`const` state it reads
+// (e.g. _reconciling) is already initialized — function declarations hoist,
+// but lexical bindings stay in the temporal dead zone until this point.
+(async () => {
+  await reconcile();
+  await restoreObservers();
+})().catch(err => console.error('[bg] startup failed:', err));
