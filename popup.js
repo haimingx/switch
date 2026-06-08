@@ -123,10 +123,6 @@ function renderPairs(pairs) {
     const fromPlaceholder = isManual ? '' : (pair.type === 'http'
       ? escAttr(inferApiDomain(currentDomain))
       : 'ws.example.com');
-    // Injecting cookies into a real (non-localhost) target overwrites that
-    // domain's own Cookie header. Warn the user; localhost/IP targets are safe.
-    const targetHost = (pair.target || '').split(':')[0];
-    const realTargetWarn = !!pair.target && !LOCALHOST_RE.test(targetHost);
 
     card.innerHTML = `
       <div class="pair-header">
@@ -158,9 +154,6 @@ function renderPairs(pairs) {
                placeholder=""
                value="${escAttr(pair.target)}">
       </div>
-      ${realTargetWarn ? `<div class="pair-warning" style="margin-top:6px;font-size:11px;line-height:1.4;color:#b8860b;"
-        title="Captured cookies are written as the full Cookie header on API/WS requests to this target, replacing the target domain's own cookies.">
-        &#9888; Real-domain target: its existing cookies will be overwritten on API requests.</div>` : ''}
     `;
 
 

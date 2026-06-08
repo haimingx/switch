@@ -81,16 +81,31 @@ export async function reconcile(sites) {
   // One cookie-inject rule per distinct HTTP target (last site wins if two
   // frontends map to the same target — an unusual edge case).
   const cookieByTarget = new Map();
-  for (const { config, cookies } of sites) {
+  for (const { domain, config, cookies } of sites) {
+    if (!cookies.length) continue;
     const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
     if (!cookieString) continue;
+    const names = cookies.map(c => c.name);
     for (const pair of config.pairs ?? []) {
       if (pair.type === 'ws' || !pair.target) continue;
-      cookieByTarget.set(pair.target, cookieString);
+      cookieByTarget.set(pair.target, { cookieString, names, source: domain });
     }
   }
-  for (const [target, cookieString] of cookieByTarget) {
+  for (const [target, { cookieString, names, source }] of cookieByTarget) {
     rules.push(buildCookieRule(id++, target, cookieString));
+    // Real-domain targets get their own Cookie header fully replaced by the
+    // captured session (DNR `operation: set`). Surface this clearly in the SW
+    // console — only cookie names are logged, never values. localhost/IP
+    // targets have no cookies of their own, so they're not flagged.
+    if (!isLocal(target)) {
+      console.warn(
+        `[rules] Cookie override on real-domain target "${target}"\n` +
+        `        source page : ${source}\n` +
+        `        injecting   : ${names.length} cookie(s) — ${names.join(', ')}\n` +
+        `        effect      : these REPLACE the target's own Cookie header on ` +
+        `xmlhttprequest/websocket requests (its existing cookies are not sent)`
+      );
+    }
   }
 
   const existing = await chrome.declarativeNetRequest.getDynamicRules();

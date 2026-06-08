@@ -149,5 +149,5 @@ Open via `chrome://extensions/` → SWITCH → **Extension options**
 
 - **Enabling WS on an open tab** — dynamic content-script registration applies to future navigations; reload the tab after first enabling a WS rule on it
 - **First-load WS** — on the very first load of a fresh tab, a WebSocket created during early page parse is briefly deferred (≤250ms) until rules arrive, then connected to the resolved target; once cached in the tab session, connections use the native WebSocket directly
-- **Real-domain cookie target** — when the target is a real domain (not localhost/IP), captured cookies replace that domain's Cookie header on API/WS requests; the popup warns about this. Local development (localhost/IP target) is unaffected
+- **Real-domain cookie target** — when the target is a real domain (not localhost/IP), captured cookies replace that domain's Cookie header on API/WS requests; this is logged in the service-worker console (`[rules] Cookie override on real-domain target …`). Local development (localhost/IP target) is unaffected
 - **Popup lifecycle** — Chrome closes the popup on tab navigation (standard extension behavior)
