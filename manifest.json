@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SWITCH",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Switch any domain's outbound connections to a target backend, with cookies auto-injected.",
 
   "background": {
