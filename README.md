@@ -76,6 +76,23 @@ devtools.html/js       Debug panel: managed sites, active DNR rules,
                        cookie status, storage inspector.
 ```
 
+### Design principles
+
+- **Stateless service worker** — MV3 terminates the SW when idle, so nothing
+  durable lives in memory. On every wake-up all runtime state (DNR rules,
+  Set-Cookie listener, per-tab API observers) is re-derived from
+  `chrome.storage` and `chrome.tabs` — never trusted from a previous run.
+- **Single reconcile** — every config / cookie / site change funnels through one
+  debounced `reconcile()` that rebuilds the *entire* dynamic ruleset from all
+  enabled sites with freshly assigned IDs. Multiple sites coexist, removals
+  leave no orphans, and there are no fixed rule IDs to collide.
+- **Inject only where needed** — the WS content scripts are registered
+  dynamically and exist only on domains with an enabled WS pair; every other
+  page keeps a pristine native `window.WebSocket`.
+- **API-scoped cookie injection** — captured cookies are set only on
+  `xmlhttprequest` / `websocket` requests to the target, never on top-level
+  navigations, so a real-domain target keeps its own session when browsed directly.
+
 ### Interception internals
 
 Chrome does not support WebSocket redirect via DNR, so the two protocols are handled at different layers:
@@ -105,14 +122,18 @@ Chrome does not support WebSocket redirect via DNR, so the two protocols are han
 │  └──────────────────────────┘         ③ rules synced            │
 └─────────────────────────────────────────────────────────────────┘
 
-① content_ws.js injected at document_start (MAIN world) overrides
-  window.WebSocket — rewrites the URL before the native constructor runs.
+① content_ws.js (MAIN world) is registered dynamically (chrome.scripting)
+  only on domains with an enabled WS pair. At document_start it overrides
+  window.WebSocket — rewriting the URL before the native constructor runs.
 
 ② content_bridge.js (isolated world) reads WS rules from chrome.storage
   and pushes them to content_ws.js via postMessage on load and on change.
 
-③ sessionStorage caches rules so content_ws.js can read them synchronously
-  on the next navigation before any page scripts execute.
+③ sessionStorage caches rules so content_ws.js can read them synchronously on
+  later navigations. On the very first load of a fresh tab the rules haven't
+  arrived yet, so a WebSocket created during early page parse is held by a
+  bounded deferral facade (≤250ms) and connected to the resolved target once
+  rules land — preserving native WebSocket semantics.
 
 ④ background.js installs a DNR redirect rule (host rewrite) + a separate
   modifyHeaders rule that injects captured cookies into API (XHR/fetch) and
