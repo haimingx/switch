@@ -21,6 +21,10 @@
 
   const STORAGE_KEY      = '__switch_ws_rules';
   const DEFER_TIMEOUT_MS = 250;
+  // localhost / 127.x dev servers serve plain ws:// (no local TLS cert), so a
+  // wss:// original must be downgraded to ws:// — mirrors the HTTP path, which
+  // forces http:// for localhost targets. Host is already port-stripped here.
+  const LOCALHOST_RE = /^(127\.0\.0\.\d+|localhost)$/;
 
   let wsRules    = [];      // current redirect rules
   let rulesReady = false;   // have we received an authoritative rule set yet?
@@ -65,6 +69,10 @@
         const [tgtHost, tgtPort = ''] = rule.target.split(':');
         parsed.hostname = tgtHost;
         parsed.port     = tgtPort;
+        // Downgrade wss:// → ws:// for localhost/IP targets (no local TLS).
+        if (LOCALHOST_RE.test(tgtHost) && parsed.protocol === 'wss:') {
+          parsed.protocol = 'ws:';
+        }
         console.debug('[SWITCH] WS redirect:', url, '→', parsed.toString());
         return parsed.toString();
       }
