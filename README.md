@@ -92,6 +92,10 @@ devtools.html/js       Debug panel: managed sites, active DNR rules,
 - **API-scoped cookie injection** — captured cookies are set only on
   `xmlhttprequest` / `websocket` requests to the target, never on top-level
   navigations, so a real-domain target keeps its own session when browsed directly.
+- **Localhost targets are plain (no TLS)** — when the target host is
+  `localhost` / `127.x`, redirects downgrade the scheme to `http://` (HTTP, via
+  the DNR rule) and `ws://` (WS, via the MAIN-world hook), since local dev
+  servers don't serve TLS. Real-domain targets keep the original scheme.
 
 ### Interception internals
 
