@@ -4,7 +4,7 @@
 
 # SWITCH
 
-Route any site's outbound HTTP and WebSocket traffic to a local or alternate backend, with session cookies auto-injected. Built as a Manifest V3 Chrome extension so you can point a live or staging frontend at local services without touching application code, proxy certificates, or `/etc/hosts`.
+Route any site's outbound HTTP and WebSocket traffic to any other backend — a local dev server, a staging or preview environment, a teammate's machine, or another region — with session cookies carried over. Built as a Manifest V3 Chrome extension, so you can point a live frontend at a different API without touching application code, proxy certificates, or `/etc/hosts`.
 
 *Zero build step. Zero proxy certificates. Zero telemetry.*
 
@@ -12,14 +12,16 @@ Route any site's outbound HTTP and WebSocket traffic to a local or alternate bac
 [![CI](https://img.shields.io/github/actions/workflow/status/haimingx/switch/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/haimingx/switch/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/haimingx/switch?style=flat-square)](LICENSE)
 
-[Releases](https://github.com/haimingx/switch/releases) · [Quickstart](#-quickstart) · [Architecture](#-architecture) · [Privacy & Permissions](#-privacy--permissions) · [Report an Issue](https://github.com/haimingx/switch/issues)
+[Releases](https://github.com/haimingx/switch/releases) · [Quickstart](#-quickstart) · [Use Cases](#-use-cases) · [Architecture](#-architecture) · [Privacy & Permissions](#-privacy--permissions) · [Report an Issue](https://github.com/haimingx/switch/issues)
 
 ## <img src="docs/icons/terminal.svg" width="22" height="22" style="vertical-align: middle; margin-right: 4px;" /> Quickstart
 
 1. Download `switch-v*.zip` from [Releases](https://github.com/haimingx/switch/releases).
 2. Open `chrome://extensions/`, enable **Developer mode**, and drag the ZIP onto the page.
 3. Visit any frontend tab (e.g. `https://app.example.com`), click the **SWITCH** icon, and choose **Add this site**.
-4. Add a rule (`From: api.example.com` → `To: localhost:3000`) or fill **To** on a **Scanned** suggestion, then flip **TOGGLE** on.
+4. Add a rule, or fill **To** on a **Scanned** suggestion, then flip **TOGGLE** on. **To** accepts any `host[:port]`:
+   - `api.example.com` → `localhost:3000` to test a local API against the live frontend
+   - `api.example.com` → `api.staging.example.com` to point production UI at staging
 
 <details>
 <summary><strong>Install from source &amp; development commands</strong></summary>
@@ -40,9 +42,18 @@ node --test tests/*.test.js
 
 </details>
 
+## <img src="docs/icons/route.svg" width="22" height="22" style="vertical-align: middle; margin-right: 4px;" /> Use Cases
+
+| Scenario | Example rule | What it gives you |
+| :--- | :--- | :--- |
+| Local development | `api.example.com` → `localhost:3000` | Develop the backend against the real, deployed frontend and its live session |
+| Staging &amp; preview | `api.example.com` → `pr-142.preview.example.com` | Try a backend branch or preview deployment without rebuilding the frontend |
+| Cross-environment debugging | `api.example.com` → `api.eu.example.com` | Reproduce an issue against another environment or region with the same UI |
+| Teammates, LAN &amp; tunnels | `ws.example.com` → `192.168.1.20:8443` | Share a backend running on another machine or behind a tunnel such as ngrok |
+
 ## <img src="docs/icons/lightbulb.svg" width="22" height="22" style="vertical-align: middle; margin-right: 4px;" /> Why?
 
-Browser-level redirect extensions hit two hard walls when routing a live frontend to a local backend:
+Browser-level redirect extensions hit two hard walls when routing a live frontend to a different backend:
 
 - **Broken CORS on redirects**: a cross-origin `307` redirect taints the request origin to `Origin: null`, which backends with credentialed CORS reject.
 - **No DNR WebSocket redirect**: Chrome's `declarativeNetRequest` API cannot redirect `ws://` / `wss://` connections.
@@ -50,7 +61,7 @@ Browser-level redirect extensions hit two hard walls when routing a live fronten
 **SWITCH bridges both layers cleanly inside Chrome:**
 
 - **Real `Origin` preserved**: rewrites `fetch`, `XMLHttpRequest`, and `EventSource` URLs inside the page before requests leave the tab, so the target sees the page's real `Origin` header.
-- **Native-fidelity WebSocket routing**: hooks `window.WebSocket` dynamically on enabled sites only, handles early page-load races with a bounded deferral facade (`<=250 ms`), and downgrades `wss://` to `ws://` for local targets.
+- **Native-fidelity WebSocket routing**: hooks `window.WebSocket` dynamically on enabled sites only, handles early page-load races with a bounded deferral facade (`<=250 ms`), and downgrades `wss://` to `ws://` only for loopback targets.
 - **Session continuity without pollution**: injects captured cookies on `xmlhttprequest` and `websocket` requests only (leaving top-level navigations untouched) and layers target `Set-Cookie` responses separately so login and logout on the target survive reloads.
 
 ## <img src="docs/icons/layers.svg" width="22" height="22" style="vertical-align: middle; margin-right: 4px;" /> What's Included
@@ -63,7 +74,7 @@ Browser-level redirect extensions hit two hard walls when routing a live fronten
     </td>
     <td width="33%" valign="top" style="border: none; padding: 6px;">
       <h4>WebSocket Routing</h4>
-      <p style="font-size: 0.9em; line-height: 1.4;">Dynamically hooks <code>window.WebSocket</code> on enabled domains only, with automatic <code>wss:// → ws://</code> downgrade for <code>localhost</code>, <code>127.x</code>, and <code>[::1]</code>.</p>
+      <p style="font-size: 0.9em; line-height: 1.4;">Dynamically hooks <code>window.WebSocket</code> on enabled domains only and routes to any host, downgrading <code>wss:// → ws://</code> only for loopback targets.</p>
     </td>
     <td width="33%" valign="top" style="border: none; padding: 6px;">
       <h4>Layered Cookie Injection</h4>
@@ -94,14 +105,27 @@ SWITCH runs as a stateless Manifest V3 service worker. Every configuration, cook
 Browser Tab (https://app.example.com)
   │
   ├── fetch / XHR / EventSource('https://api.example.com/v1/me')
-  │     ├─► content_http.js rewrites host in-page ─► http://localhost:3000/v1/me
+  │     ├─► content_http.js rewrites host in-page ─► https://api.staging.example.com/v1/me
   │     │   (preserves real Origin: https://app.example.com)
   │     └─► DNR modifyHeaders sets Cookie header (DNR redirect stays as fallback)
   │
   └── new WebSocket('wss://ws.example.com/stream')
         ├─► content_ws.js rewrites host in-page ─► ws://localhost:3001/stream
+        │   (loopback target: wss:// downgraded to ws://)
         └─► DNR modifyHeaders sets Cookie header on WS handshake
 ```
+
+### Target behavior
+
+| Target | Examples | Scheme | Session cookies |
+| :--- | :--- | :--- | :--- |
+| Loopback | `localhost:3000`, `127.0.0.1:8080`, `[::1]:3000` | Downgraded to `http://` / `ws://`, since local dev servers rarely serve TLS | Injected on `xmlhttprequest` and `websocket` requests |
+| Any other host | `api.staging.example.com`, `pr-142.preview.example.com`, `192.168.1.20:8443` | Kept from the original request (`https://` stays `https://`, `wss://` stays `wss://`) | Injected on `xmlhttprequest` and `websocket` requests, **replacing** the target's own `Cookie` header; each override is logged in the service-worker console |
+
+In both cases, top-level navigations keep the target domain's own session, and `Set-Cookie` responses from the target are layered on top until the site is toggled off.
+
+> [!TIP]
+> A non-loopback target must serve the same scheme as the original request. If a page on `https://` calls a LAN dev server that only speaks plain HTTP (for example `192.168.1.20:3000`), serve it over TLS or reach it through an HTTPS tunnel.
 
 ### Repository layout
 
@@ -133,9 +157,6 @@ Browser Tab (https://app.example.com)
 > [!NOTE]
 > **First enable on an open tab**: Chrome applies newly registered dynamic content scripts on the next navigation. Reload the tab (or click the refresh icon in **SETTINGS**) after first enabling rules on an already-open tab.
 
-> [!TIP]
-> **Real-domain targets**: When routing to a non-localhost domain, captured cookies replace that host's `Cookie` header on `xmlhttprequest` and `websocket` requests only (logged in the service-worker console). Top-level navigations keep the target domain's own session.
-
 ## <img src="docs/icons/lock.svg" width="22" height="22" style="vertical-align: middle; margin-right: 4px;" /> Privacy & Permissions
 
 SWITCH runs **100% locally** inside your browser:
@@ -143,7 +164,7 @@ SWITCH runs **100% locally** inside your browser:
 - **Zero telemetry**: no analytics, no external requests, and no remote storage. Everything stays in `chrome.storage.local`.
 - **Safe exports**: JSON configuration exports include `managed_sites` and routing rules only — session cookies are never exported.
 - **Scoped script injection**: MAIN-world scripts are registered dynamically via `chrome.scripting` **only** on domains you explicitly add and enable; every other tab keeps native `fetch`, `XMLHttpRequest`, `EventSource`, and `WebSocket`.
-- **Why broad host permissions exist**: SWITCH routes arbitrary user-configured frontend domains to arbitrary local or alternate backends at runtime, which requires `http://*/*`, `https://*/*`, `ws://*/*`, and `wss://*/*` alongside `cookies`, `declarativeNetRequest`, `webRequest`, `scripting`, `storage`, and `tabs`.
+- **Why broad host permissions exist**: SWITCH routes arbitrary user-configured frontend domains to arbitrary user-configured backends (loopback, private network, or public) at runtime, which requires `http://*/*`, `https://*/*`, `ws://*/*`, and `wss://*/*` alongside `cookies`, `declarativeNetRequest`, `webRequest`, `scripting`, `storage`, and `tabs`.
 
 ## <img src="docs/icons/file-text.svg" width="22" height="22" style="vertical-align: middle; margin-right: 4px;" /> License
 
