@@ -1,0 +1,171 @@
+/* SWITCH Design Tokens — Modern CSS (light-dark, color-scheme, forced-colors)
+ * Palette: Botanical Ink & Paper + Lime-Emerald Technical Accent
+ */
+:root {
+  color-scheme: light dark;
+  interpolate-size: allow-keywords;
+
+  --font-sans: 'Libre Franklin', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', 'Roboto Mono', ui-monospace, Consolas, monospace;
+
+  /* Core Surfaces & Ink */
+  --paper:         light-dark(#FFFFFF, #0E1412);
+  --wash:          light-dark(#F4F7F5, #161E1B);
+  --wash-hover:    light-dark(#EBF0ED, #1E2824);
+  --ink:           light-dark(#0B1410, #E6EEE9);
+  --ink-secondary: light-dark(#44524C, #A3B1AA);
+  --muted:         light-dark(#5C6A64, #87968F);
+  --rule:          light-dark(#E3E8E5, #232E29);
+  --rule-strong:   light-dark(#C5CFC9, #36453E);
+
+  /* Primary Action (High-Contrast Editorial) */
+  --cta-bg:        light-dark(#0B1410, #81E828);
+  --cta-fg:        light-dark(#FFFFFF, #0B1410);
+  --cta-hover:     light-dark(#1D2B24, #96EE48);
+
+  /* Live / Brand Accent */
+  --brand:         light-dark(#0B8754, #81E828);
+  --brand-soft:    light-dark(rgba(11, 135, 84, 0.09), rgba(129, 232, 40, 0.12));
+  --toggle-thumb:  light-dark(#FFFFFF, #0B1410);
+
+  /* Semantic Indicators (WCAG AA >= 4.5:1 text contrast) */
+  --http-fg:       light-dark(#0960CC, #60A5FA);
+  --ws-fg:         light-dark(#6D3CE0, #B794F6);
+  --scanned-fg:    light-dark(#925300, #FBBF24);
+  --danger:        light-dark(#B3261E, #FF6B6B);
+  --danger-soft:   light-dark(rgba(179, 38, 30, 0.07), rgba(255, 107, 107, 0.12));
+
+  /* Code Surface */
+  --code-bg:       light-dark(#F4F7F5, #090D0B);
+  --code-fg:       light-dark(#1D2B24, #C9D6CF);
+
+  /* Tight Architectural Geometry */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+
+  /* Native form & scrollbar theming */
+  accent-color: var(--brand);
+  scrollbar-color: var(--rule-strong) transparent;
+  scrollbar-width: thin;
+}
+
+@supports not (scrollbar-color: auto) {
+  :root, * { scrollbar-width: auto; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+body, button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Precision Switch Control (accessible role="switch" checkbox) */
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 2.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+}
+.toggle input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.toggle-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--rule-strong);
+  border: 1px solid transparent;
+  pointer-events: none;
+  transition: background-color 0.16s ease;
+}
+.toggle-track::before {
+  content: '';
+  position: absolute;
+  width: 0.75rem;
+  height: 0.75rem;
+  left: 0.125rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--paper);
+  transition: transform 0.16s ease, background-color 0.16s ease;
+}
+.toggle input:checked + .toggle-track {
+  background: var(--brand);
+}
+.toggle input:checked + .toggle-track::before {
+  transform: translate(1rem, -50%);
+  background: var(--toggle-thumb);
+}
+.toggle input:focus-visible + .toggle-track {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.toggle-sm {
+  width: 1.75rem;
+  height: 0.9375rem;
+}
+.toggle-sm .toggle-track::before {
+  width: 0.5625rem;
+  height: 0.5625rem;
+}
+.toggle-sm input:checked + .toggle-track::before {
+  transform: translate(0.8125rem, -50%);
+}
+
+/* Native <details> smooth disclosure (progressive enhancement) */
+details::details-content {
+  transition: block-size 0.18s ease, content-visibility 0.18s ease allow-discrete;
+  block-size: 0;
+  overflow: clip;
+}
+details[open]::details-content {
+  block-size: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .toggle-track { border-color: ButtonText; }
+  .toggle input:checked + .toggle-track { background: Highlight; }
+  .toggle-track::before { background: ButtonText; }
+}

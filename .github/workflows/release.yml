@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run unit tests
+        run: node --test tests/*.test.js
+
+      # Chrome only accepts 1-4 dot-separated integers as "version"; a pre-release tag such as
+      # v3.0.0-rc.1 keeps its numeric part there and shows the full tag via "version_name".
+      - name: Extract version from tag
+        id: version
+        run: |
+          NAME="${GITHUB_REF_NAME#v}"
+          echo "version=${NAME%%-*}" >> $GITHUB_OUTPUT
+          echo "version_name=$NAME" >> $GITHUB_OUTPUT
+
+      - name: Sync version to manifest.json
+        run: |
+          jq --arg v "${{ steps.version.outputs.version }}" --arg n "${{ steps.version.outputs.version_name }}" \
+            '.version = $v | .version_name = $n' manifest.json > manifest.tmp
+          mv manifest.tmp manifest.json
+
+      - name: Package extension
+        run: |
+          zip -r switch-${{ github.ref_name }}.zip \
+            LICENSE \
+            NOTICE \
+            manifest.json \
+            background.js \
+            constants.js \
+            popup.html \
+            popup.js \
+            devtools.html \
+            devtools.js \
+            content_ws.js \
+            content_http.js \
+            content_bridge.js \
+            assets/ \
+            styles/ \
+            modules/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: SWITCH ${{ github.ref_name }}
+          body: |
+            Route any site's outbound HTTP and WebSocket traffic to another backend, with cookies auto-injected.
+
+            ### Installation
+            1. Download `switch-${{ github.ref_name }}.zip`
+            2. Open `chrome://extensions/` → enable **Developer mode**
+            3. Drag the zip file onto the page
+          files: switch-${{ github.ref_name }}.zip
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

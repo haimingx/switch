@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "SWITCH",
+  "version": "3.0.0",
+  "description": "Route any site's outbound HTTP and WebSocket traffic to another backend, with cookies auto-injected.",
+  "homepage_url": "https://github.com/haimingx/switch",
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "SWITCH",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+
+  "options_page": "devtools.html",
+
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
+
+  "permissions": [
+    "cookies",
+    "storage",
+    "scripting",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
+    "tabs",
+    "webRequest"
+  ],
+
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*",
+    "ws://*/*",
+    "wss://*/*"
+  ],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

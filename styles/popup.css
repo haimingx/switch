@@ -1,0 +1,599 @@
+/* SWITCH Popup — v2 Clear Card Architecture × Refined Ink/Paper & Obsidian Craft */
+body {
+  width: 380px;
+  min-height: 220px;
+  max-height: 580px;
+  font-size: 0.8125rem;
+  background: var(--wash);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header (v2 centered brand bar) ─────────────────────────── */
+.header {
+  position: relative;
+  min-block-size: 3.125rem;
+  padding: 0.625rem 1rem;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.header-logo {
+  width: 1.375rem;
+  height: 1.375rem;
+  display: block;
+  flex-shrink: 0;
+}
+.header h1 {
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+  text-box: trim-both cap alphabetic;
+}
+
+.header-actions {
+  position: absolute;
+  right: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.btn-icon-ghost {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.14s, color 0.14s;
+}
+.btn-icon-ghost:hover {
+  background: var(--wash);
+  color: var(--ink);
+}
+.btn-icon-ghost.danger:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* ── Content Scroll Area ────────────────────────────────────── */
+#content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Card Base (Crisp Paper + 1px Hairline, Zero Heavy Shadow) ─ */
+.card {
+  background: var(--paper);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--rule);
+  padding: 0.75rem 0.875rem;
+}
+
+/* ── Add-Site & Unsupported Centered Views ──────────────────── */
+.center-view {
+  flex: 1;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  padding: 0.5rem 0.25rem;
+}
+.center-view[data-visible="true"] {
+  display: flex;
+}
+
+.addsite-card {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  padding: 1.375rem 1.25rem 1.25rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.625rem;
+}
+
+.addsite-label {
+  font-size: 0.65625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-box: trim-both cap alphabetic;
+}
+
+/* Clean typographic domain — zero decorative box/left-border */
+.addsite-domain {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  padding: 0.125rem 0.25rem 0.375rem;
+}
+
+.addsite-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.25rem;
+}
+
+.btn-add {
+  width: 100%;
+  min-block-size: 2.375rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--cta-bg);
+  color: var(--cta-fg);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background-color 0.14s;
+}
+.btn-add:hover { background: var(--cta-hover); }
+
+.btn-secondary {
+  min-block-size: 2.125rem;
+  padding: 0.4375rem 1rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.78125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.14s;
+}
+.btn-secondary:hover { background: var(--wash); }
+
+/* ── Main View (v2 3-Card Stack) ────────────────────────────── */
+#main-content {
+  display: none;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+#main-content[data-visible="true"] {
+  display: flex;
+}
+
+.section-icon {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* Card 1: Toggle Row */
+.switch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.switch-label {
+  font-size: 0.71875rem;
+  font-weight: 700;
+  color: var(--ink-secondary);
+  letter-spacing: 0.07em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Card 2: Settings Header */
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid var(--rule);
+}
+.settings-title {
+  font-size: 0.71875rem;
+  font-weight: 700;
+  color: var(--ink-secondary);
+  letter-spacing: 0.07em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.settings-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.save-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65625rem;
+  font-weight: 600;
+  color: var(--brand);
+  opacity: 0;
+  transition: opacity 0.18s;
+  text-box: trim-both cap alphabetic;
+}
+.save-badge.show { opacity: 1; }
+.save-badge.error { color: var(--danger); }
+
+.btn-icon-round {
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  background: var(--wash);
+  color: var(--ink-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.14s, color 0.14s, border-color 0.14s;
+}
+.btn-icon-round:hover {
+  background: var(--wash-hover);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+.btn-icon-round.spinning svg { animation: spin 0.75s linear infinite; }
+.btn-icon-round.done {
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-color: transparent;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Shared Section Titles (ENV / RULES) */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.section-title-split {
+  justify-content: space-between;
+}
+.section-title-text {
+  font-size: 0.65625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-box: trim-both cap alphabetic;
+}
+
+/* Shared 2-Col Info Grid (ENV + Rule Pairs share exact 64px label column) */
+.info-box {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 0.9375rem;
+  background: var(--paper);
+}
+.info-grid {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+}
+.info-cell-label {
+  font-size: 0.71875rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--wash);
+  padding: 0.46875rem 0.5rem 0.46875rem 0.625rem;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--rule);
+  white-space: nowrap;
+  user-select: none;
+}
+.info-cell-val {
+  font-family: var(--font-mono);
+  font-size: 0.71875rem;
+  color: var(--ink);
+  padding: 0.46875rem 0.625rem;
+  display: block;
+  min-width: 0;
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  user-select: text;
+  scrollbar-width: none;
+}
+.info-cell-val::-webkit-scrollbar {
+  display: none;
+}
+.info-cell-input {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ink);
+  padding: 0.46875rem 0.625rem;
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  min-width: 0;
+  transition: background-color 0.14s, color 0.14s;
+}
+.info-cell-input::placeholder { color: var(--muted); opacity: 0.52; }
+.info-cell-input:focus { background: var(--wash); }
+.info-cell-input.saved { background: var(--brand-soft); }
+.info-cell-input.input-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.info-row-divider {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: var(--rule);
+}
+
+/* Optional Toggle Filter Chips (unselected = show all) */
+.filter-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+  background: transparent;
+  transition: background-color 0.14s, color 0.14s, border-color 0.14s;
+}
+.filter-chip:hover {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+.filter-chip[aria-pressed="true"] {
+  color: var(--cta-fg);
+  font-weight: 600;
+  background: var(--cta-bg);
+  border-color: var(--cta-bg);
+}
+.filter-count {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  opacity: 0.72;
+}
+.filter-count:empty {
+  display: none;
+}
+
+/* Rule Pair Cards (clean paper header + aligned From/To grid) */
+.protocol-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+#protocolPairs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.empty-rules {
+  padding: 0.5rem 0.25rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.protocol-pair {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  overflow: hidden;
+  transition: border-color 0.14s, opacity 0.16s;
+}
+.protocol-pair:focus-within {
+  border-color: var(--rule-strong);
+}
+.protocol-pair:has(.pair-enabled:not(:checked)) {
+  opacity: 0.50;
+}
+.protocol-pair:has(.input-error) {
+  border-color: var(--danger);
+}
+
+.pair-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4375rem 0.5rem 0.4375rem 0.625rem;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+}
+.pair-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.pair-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.pair-type-wrap {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  border-radius: var(--radius-sm);
+  padding: 0.15625rem 0.4375rem;
+}
+.pair-type-wrap[data-proto="http"] {
+  color: var(--http-fg);
+  background: color-mix(in oklab, var(--http-fg) 10%, transparent);
+}
+.pair-type-wrap[data-proto="ws"] {
+  color: var(--ws-fg);
+  background: color-mix(in oklab, var(--ws-fg) 11%, transparent);
+}
+
+.pair-type-select {
+  font-family: var(--font-mono);
+  font-size: 0.65625rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  padding: 0 0.8125rem 0 0;
+}
+.pair-type-select:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+.pair-type-chevron {
+  position: absolute;
+  right: 0.3125rem;
+  pointer-events: none;
+}
+
+/* Quiet typographic source indicator — no clunky bordered boxes */
+.pair-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pair-source.is-scanned {
+  color: var(--scanned-fg);
+}
+.pair-source-dot {
+  width: 0.3125rem;
+  height: 0.3125rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.pair-remove {
+  width: 1.375rem;
+  height: 1.375rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.14s, background-color 0.14s;
+}
+.pair-remove:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* Add Rule Button (clean solid-hairline surface, no dashed wireframe look) */
+.btn-add-pair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-block-size: 2.125rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--wash);
+  color: var(--ink-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.14s, border-color 0.14s, color 0.14s;
+}
+.btn-add-pair:hover {
+  background: var(--wash-hover);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+
+/* Card 3: Debug (v2 card + seamlessly joined drawer) */
+.debug-control {
+  padding: 0.625rem 0.875rem;
+}
+.debug-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.debug-label {
+  font-size: 0.71875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--ink-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.debug-control.debug-expanded {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-bottom-color: var(--rule);
+}
+.debug-section {
+  background: var(--paper);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  border: 1px solid var(--rule);
+  border-top: none;
+  padding: 0.625rem;
+}
+#debugInfo {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: var(--code-fg);
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--radius-sm);
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

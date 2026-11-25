@@ -1,0 +1,33 @@
+# Build & package artifacts
+dist/
+build/
+*.zip
+*.crx
+
+# Dependencies & caches
+node_modules/
+.cache/
+coverage/
+
+# Screenshots & scratch assets (keep extension icons)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+!assets/icon*.png
+
+# Editor & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.log
+
+# Local AI context & env files
+.env
+.env.*
+CLAUDE.md
+.claude/
+.cursor/

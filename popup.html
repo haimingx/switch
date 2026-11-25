@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>SWITCH</title>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+
+<!-- Header (v2 centered brand layout + discreet utility actions) -->
+<header class="header">
+  <div class="header-brand">
+    <img class="header-logo" src="assets/logo.svg" alt="" width="22" height="22">
+    <h1>SWITCH</h1>
+  </div>
+  <div class="header-actions">
+    <button class="btn-icon-ghost danger" id="removeSiteBtn" type="button" title="Remove this site" aria-label="Remove this site" hidden>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+        <path d="M10 11v6"/><path d="M14 11v6"/>
+        <path d="M9 6V4h6v2"/>
+      </svg>
+    </button>
+    <button class="btn-icon-ghost" id="openOptionsBtn" type="button" title="Open Settings" aria-label="Open Settings">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+        <polyline points="15 3 21 3 21 9"/>
+        <line x1="10" y1="14" x2="21" y2="3"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- Content -->
+<main id="content">
+
+  <!-- Unsupported view (chrome://, about:, etc.) -->
+  <section class="center-view" id="unsupported-container">
+    <div class="addsite-card">
+      <div class="addsite-label">HTTP / HTTPS ONLY</div>
+      <div class="addsite-title">No web page active</div>
+      <button class="btn-secondary" id="openOptionsFromUnsupported" type="button">Open Settings</button>
+    </div>
+  </section>
+
+  <!-- Add-site view -->
+  <section class="center-view" id="addsite-container">
+    <div class="addsite-card">
+      <div class="addsite-domain" id="addSiteDomain">—</div>
+      <button class="btn-add" id="addSiteBtn" type="button">Add this site</button>
+    </div>
+  </section>
+
+  <!-- Main view (exact v2 3-card structure: TOGGLE -> SETTINGS -> DEBUG) -->
+  <div id="main-content">
+
+    <!-- Card 1: Toggle -->
+    <section class="card">
+      <div class="switch-row">
+        <div class="switch-label">
+          <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/>
+            <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/>
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M18 22l-3-3 3-3"/><path d="M6 2l3 3-3 3"/>
+          </svg>
+          <span>TOGGLE</span>
+        </div>
+        <label class="toggle" title="Enable or disable rules for this site">
+          <input type="checkbox" id="toggleSwitch" role="switch" aria-label="Toggle site routing">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Card 2: Settings (ENV + RULES) -->
+    <section class="card">
+      <div class="settings-header">
+        <div class="settings-title">
+          <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span>SETTINGS</span>
+        </div>
+        <div class="settings-buttons">
+          <span class="save-badge" id="saveBadge" role="status" aria-live="polite">Saved</span>
+          <button class="btn-icon-round" id="scanCookies" type="button" title="Scan cookies" aria-label="Scan cookies">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+            </svg>
+          </button>
+          <button class="btn-icon-round" id="refreshPage" type="button" title="Refresh page" aria-label="Refresh page">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M23 4v6h-6"/>
+              <path d="M1 20v-6h6"/>
+              <path d="M3.51 9a9 9 0 0 1 14.36-3.36L23 10M1 14l5.13 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ENV section -->
+      <div class="section-title">
+        <span class="section-title-text">Env</span>
+      </div>
+      <div class="info-box">
+        <div class="info-grid">
+          <span class="info-cell-label">Front</span>
+          <span class="info-cell-val" id="currentDomain">—</span>
+          <div class="info-row-divider" id="cookieDivider"></div>
+          <span class="info-cell-label" id="cookieLabel">Cookies</span>
+          <span class="info-cell-val" id="cookieCount">—</span>
+        </div>
+      </div>
+
+      <!-- RULES section -->
+      <div class="section-title section-title-split">
+        <span class="section-title-text">Rules</span>
+        <div class="filter-chips" role="group" aria-label="Filter rules">
+          <button class="filter-chip" id="filterManual" type="button" aria-pressed="false">Manual<span class="filter-count" id="countManual"></span></button>
+          <button class="filter-chip" id="filterScanned" type="button" aria-pressed="false">Scanned<span class="filter-count" id="countScanned"></span></button>
+        </div>
+      </div>
+
+      <div class="protocol-section">
+        <div id="protocolPairs"></div>
+        <button class="btn-add-pair" id="addPairBtn" type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add rule
+        </button>
+      </div>
+    </section>
+
+    <!-- Card 3: Debug -->
+    <div class="debug-wrap">
+      <div class="card debug-control" id="debugControl">
+        <div class="debug-row">
+          <div class="debug-label">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            <span>DEBUG</span>
+          </div>
+          <label class="toggle" title="Show live debug state">
+            <input type="checkbox" id="debugToggle" role="switch" aria-label="Toggle debug panel">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="debug-section" id="debugSection" hidden>
+        <pre id="debugInfo"></pre>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</main>
+
+<script type="module" src="popup.js"></script>
+</body>
+</html>

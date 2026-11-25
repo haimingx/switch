@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>SWITCH</title>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/devtools.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-header-inner">
+    <div class="header-left">
+      <button class="brand" id="brandHome" type="button" title="Back to Sites">
+        <img class="brand-logo" src="assets/logo.svg" alt="" width="20" height="20">
+        <span>SWITCH</span>
+      </button>
+
+      <nav class="nav-tabs" role="tablist" aria-label="Sections">
+        <button class="nav-tab" id="tab-sites" type="button" role="tab" aria-selected="true" aria-controls="panel-sites">
+          Sites <span class="tab-count" id="sitesCount">0</span>
+        </button>
+        <button class="nav-tab" id="tab-rules" type="button" role="tab" aria-selected="false" aria-controls="panel-rules" tabindex="-1">
+          Rules <span class="tab-count" id="rulesCount">0</span>
+        </button>
+        <button class="nav-tab" id="tab-cookies" type="button" role="tab" aria-selected="false" aria-controls="panel-cookies" tabindex="-1">
+          Cookies
+        </button>
+        <button class="nav-tab" id="tab-data" type="button" role="tab" aria-selected="false" aria-controls="panel-data" tabindex="-1">
+          Data
+        </button>
+      </nav>
+    </div>
+
+    <div class="header-right">
+      <span class="toast" id="toast" role="status" aria-live="polite"></span>
+      <a class="repo-link" href="https://github.com/haimingx/switch" target="_blank" rel="noopener noreferrer" title="github.com/haimingx/switch">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+        </svg>
+        <span>GitHub</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- Panel 1: Managed Sites -->
+  <section class="panel" id="panel-sites" role="tabpanel" aria-labelledby="tab-sites">
+    <form class="add-bar" id="addSiteForm">
+      <input id="newSiteInput" type="text"
+             placeholder="Add domain (e.g. app.example.com)" autocomplete="off" spellcheck="false" aria-label="Domain to manage">
+      <button type="submit" class="btn btn-primary">Add site</button>
+    </form>
+    <div class="form-error" id="addSiteError" role="alert"></div>
+
+    <div class="ledger" id="sitesList"><p class="empty">Loading…</p></div>
+  </section>
+
+  <!-- Panel 2: Active DNR Rules -->
+  <section class="panel" id="panel-rules" role="tabpanel" aria-labelledby="tab-rules" hidden>
+    <div class="panel-bar">
+      <span class="panel-summary" id="rulesSummary">0 active rules</span>
+      <div class="btn-row">
+        <button class="btn btn-ghost btn-sm" id="toggleRawRules" type="button" aria-pressed="false">Raw JSON</button>
+        <button class="btn btn-ghost btn-sm" id="refreshRules" type="button">Refresh</button>
+      </div>
+    </div>
+
+    <div id="rulesTableWrap"></div>
+    <pre class="raw-pre" id="rulesOutput" hidden></pre>
+  </section>
+
+  <!-- Panel 3: Cookies -->
+  <section class="panel" id="panel-cookies" role="tabpanel" aria-labelledby="tab-cookies" hidden>
+    <div id="cookieStatus"><p class="empty">Loading…</p></div>
+  </section>
+
+  <!-- Panel 4: Data & Backup -->
+  <section class="panel" id="panel-data" role="tabpanel" aria-labelledby="tab-data" hidden>
+    <div class="settings-list">
+      <div class="setting-row">
+        <div class="setting-copy">
+          <div class="setting-title">Export configuration</div>
+          <div class="setting-desc">Download managed sites and routing rules as JSON.</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="exportStorage" type="button">Export JSON</button>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <div class="setting-title">Import configuration</div>
+          <div class="setting-desc">Merge sites and rules from a backup file.</div>
+        </div>
+        <input type="file" id="importFileInput" accept="application/json,.json" hidden>
+        <button class="btn btn-ghost btn-sm" id="importStorage" type="button">Import JSON</button>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <div class="setting-title">Reset data</div>
+          <div class="setting-desc">Remove all sites, rules, cookies, and active DNR rules.</div>
+        </div>
+        <button class="btn btn-ghost btn-sm btn-reset" id="clearStorage" type="button">Clear all data</button>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <div class="setting-title">Version</div>
+        </div>
+        <span class="setting-meta" id="versionText">v3.0.0</span>
+      </div>
+    </div>
+
+    <details class="raw-details">
+      <summary class="raw-summary">
+        <svg class="summary-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+        <span>Raw storage</span>
+      </summary>
+      <pre class="raw-pre" id="storageOutput">Loading…</pre>
+    </details>
+  </section>
+
+</main>
+
+<script type="module" src="devtools.js"></script>
+</body>
+</html>

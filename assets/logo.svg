@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="sw-top" x1="24" y1="24" x2="104" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#CEE432"/>
+      <stop offset="55%" stop-color="#81E828"/>
+      <stop offset="100%" stop-color="#55E0A3"/>
+    </linearGradient>
+    <linearGradient id="sw-bot" x1="104" y1="68" x2="24" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#55E0A3"/>
+      <stop offset="50%" stop-color="#38CF7A"/>
+      <stop offset="100%" stop-color="#0FA968"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="22" fill="#0E1412"/>
+  <rect x="1.5" y="1.5" width="125" height="125" rx="20.5" stroke="#E6EEE9" stroke-opacity="0.10" stroke-width="2"/>
+  <!-- Upper right-bound routing arrow -->
+  <path d="M24 36H76V24L104 43L76 62V50H24V36Z" fill="url(#sw-top)"/>
+  <!-- Lower left-bound routing arrow -->
+  <path d="M104 78H52V66L24 85L52 104V92H104V78Z" fill="url(#sw-bot)"/>
+</svg>
