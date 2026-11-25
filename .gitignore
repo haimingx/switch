@@ -16,6 +16,7 @@ coverage/
 *.gif
 *.webp
 !assets/icon*.png
+!docs/social-preview.png
 
 # Editor & OS files
 .vscode/
